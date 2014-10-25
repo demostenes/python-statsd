@@ -31,6 +31,7 @@ class Timer(statsd.Client):
         self._last = None
         self._stop = None
         self.min_send_threshold = min_send_threshold
+        self._intermediates = []
 
     def start(self):
         '''Start the timer and store the start time, this can only be executed
@@ -69,9 +70,9 @@ class Timer(statsd.Client):
         :type subname: str
         '''
         t = time.time()
-        response = self.send(subname, t - self._last)
+        self._intermediates.append((subname, t - self._last))
         self._last = t
-        return response
+        return True
 
     def stop(self, subname='total'):
         '''Stop the timer and send the total since `start()` was run
@@ -83,6 +84,8 @@ class Timer(statsd.Client):
         assert self._stop is None, (
             'Unable to stop, the timer is already stopped')
         self._stop = time.time()
+        for inter_subname, inter_delta in self._intermediates:
+            self.send(inter_subname, inter_delta)
         return self.send(subname, self._stop - self._start)
 
     def _decorate(self, name, function, class_=None):
